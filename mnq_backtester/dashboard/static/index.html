@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MNQ Advanced Backtesting & PineScript Studio</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' },
+            darkbg: '#0b0f19',
+            cardbg: '#111827',
+            cardborder: '#1f2937'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .glass-card { background: rgba(17, 24, 39, 0.85); backdrop-filter: blur(12px); border: 1px solid #1f2937; }
+    .code-editor { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0b0f19; }
+    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-darkbg text-gray-100 min-h-screen flex flex-col">
+
+  <!-- Top Header Navigation -->
+  <header class="border-b border-gray-800 bg-gray-900/90 px-6 py-3.5 flex items-center justify-between sticky top-0 z-50 backdrop-blur">
+    <div class="flex items-center space-x-3">
+      <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-500/20">
+        <i class="fa-solid fa-chart-line"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold tracking-wide text-white flex items-center gap-2">
+          MNQ QUANT ENGINE <span class="text-xs font-semibold px-2 py-0.5 rounded bg-blue-900/60 text-blue-400 border border-blue-700/50">PINESCRIPT v5 STUDIO</span>
+        </h1>
+        <p class="text-xs text-gray-400">Institutional MNQ Backtesting, PineScript Transpiler & Monte Carlo Stress Engine</p>
+      </div>
+    </div>
+    
+    <!-- Header Right Badges -->
+    <div class="flex items-center space-x-3">
+      <div id="dataQualityBadge" class="hidden text-xs px-3 py-1.5 rounded-md border flex items-center gap-2 bg-emerald-950/40 border-emerald-800 text-emerald-400">
+        <i class="fa-solid fa-shield-check"></i> <span id="dataQualityText">Data Validated: 100% Clean</span>
+      </div>
+      <a href="/api/export_csv" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 px-3 py-1.5 rounded-md flex items-center gap-1.5 transition">
+        <i class="fa-solid fa-file-arrow-down"></i> Export Trades (CSV)
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+
+    <!-- Left Control Sidebar -->
+    <aside class="w-full lg:w-96 border-r border-gray-800 bg-gray-900/40 p-5 overflow-y-auto space-y-5">
+      <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+        <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-blue-500"></i> Strategy & Controls
+        </h2>
+        <span class="text-xs font-mono text-blue-400">MNQ=F ($2/pt)</span>
+      </div>
+
+      <!-- Strategy Source Selector -->
+      <div class="space-y-1.5">
+        <label class="text-xs font-medium text-gray-300 flex items-center justify-between">
+          <span>Pre-Loaded Strategy Suite</span>
+          <span class="text-[10px] text-blue-400 font-semibold uppercase">AlgoFarm Suite</span>
+        </label>
+        <select id="strategySuiteSelect" onchange="onSuiteStrategyChange()" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-blue-500">
+          <option value="smc_sweep_007">1. SMC Sweep (3) 5m MNQ TEST007</option>
+          <option value="orb_dd_crush">2. ORB DD CRUSH (3) 5m MNQ TEST008</option>
+          <option value="inverse_fvg">3. Inverse FVG (Full Day 5/5) TEST008</option>
+          <option value="boswaves_gravity">4. BOSWaves Gravity 5m MNQ TEST001</option>
+          <option value="supertrend_flip">5. SuperTrend Trend Flip (Optimized)</option>
+          <option value="vwap_reversion">6. VWAP Mean Reversion (Optimized)</option>
+          <option value="orb">Built-in 15m ORB Engine</option>
+          <option value="fvg">Built-in FVG Retest Model</option>
+          <option value="boswaves">Built-in BOSWaves Gravity</option>
+        </select>
+      </div>
+
+      <!-- PineScript Code Editor Accordion -->
+      <div class="border border-gray-800 bg-gray-950/70 rounded-xl p-3.5 space-y-2.5">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-semibold text-gray-200 flex items-center gap-1.5">
+            <i class="fa-solid fa-code text-indigo-400"></i> PineScript Code Editor
+          </label>
+          <div class="flex items-center gap-2">
+            <label for="pineFileInput" class="cursor-pointer text-[10px] bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-2 py-0.5 rounded transition">
+              <i class="fa-solid fa-upload mr-1"></i> Upload .pine
+            </label>
+            <input type="file" id="pineFileInput" accept=".pine,.txt" class="hidden" onchange="handleFileUpload(event)" />
+            <button onclick="clearEditor()" class="text-[10px] text-gray-500 hover:text-gray-300">Clear</button>
+          </div>
+        </div>
+        
+        <textarea id="pineCodeEditor" rows="9" class="code-editor w-full bg-gray-900 border border-gray-800 rounded-lg p-2.5 text-[11px] text-emerald-300 font-mono focus:outline-none focus:border-blue-500 leading-relaxed" placeholder="Paste PineScript v5 / v4 code here..."></textarea>
+        
+        <div class="flex items-center justify-between text-[11px] text-gray-500">
+          <span>Supports: <code class="text-gray-400">ta.ema, ta.rsi, ta.atr, ta.highest, strategy.entry, strategy.exit</code></span>
+          <button onclick="loadSelectedSuiteCode()" class="text-blue-400 hover:text-blue-300 font-medium">Load Preset Code</button>
+        </div>
+      </div>
+
+      <!-- Lookback Horizon & Capital -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="space-y-1.5">
+          <label class="text-xs font-medium text-gray-400">Horizon Period</label>
+          <select id="lookbackDays" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-blue-500">
+            <option value="30">1 Month (30d)</option>
+            <option value="90">3 Months (90d)</option>
+            <option value="180" selected>6 Months (180d)</option>
+            <option value="365">1 Year (365d)</option>
+            <option value="1825">5 Years (1825d)</option>
+            <option value="3650">10 Years (3650d)</option>
+          </select>
+        </div>
+        <div class="space-y-1.5">
+          <label class="text-xs font-medium text-gray-400">Initial Capital ($)</label>
+          <input type="number" id="capitalInput" value="50000" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-blue-500" />
+        </div>
+      </div>
+
+      <!-- Sample Separation Mode -->
+      <div class="space-y-1.5">
+        <label class="text-xs font-medium text-gray-400">Data Sample Separation</label>
+        <select id="splitMode" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-blue-500">
+          <option value="train_test">In-Sample 70% / Out-of-Sample 30%</option>
+          <option value="full">Full Dataset (No Split)</option>
+        </select>
+      </div>
+
+      <!-- Crisis & Recession Regimes -->
+      <div class="space-y-1.5">
+        <label class="text-xs font-medium text-gray-400 flex items-center justify-between">
+          <span>Crisis / Crash Regime</span>
+          <i class="fa-solid fa-fire text-amber-500"></i>
+        </label>
+        <select id="regimeSelect" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-amber-300 focus:outline-none focus:border-blue-500">
+          <option value="none">None (Standard Market Flow)</option>
+          <option value="COVID_CRASH_2020">2020 COVID Crash (-30%, VIX 85+)</option>
+          <option value="FED_RATE_HIKE_BEAR_2022">2022 Fed Rate Hike Bear (-35%)</option>
+          <option value="VOLMAGEDDON_2018">2018 Volmageddon Shock</option>
+          <option value="TECH_SELLOFF_Q4_2018">Q4 2018 Tech Selloff (-23%)</option>
+          <option value="GFC_2008">2008 Global Financial Crisis (-54%)</option>
+          <option value="DOT_COM_CRASH">2000 Dot-Com Bubble Burst (-83%)</option>
+          <option value="JAPAN_CARRY_UNWIND_2024">2024 Yen Carry Liquidation</option>
+        </select>
+      </div>
+
+      <!-- Monte Carlo & Bootstrap Controls -->
+      <div class="border-t border-gray-800 pt-4 space-y-3">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+          <i class="fa-solid fa-dice text-purple-400"></i> Monte Carlo & Bootstrap
+        </h3>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="text-[11px] text-gray-400">Iterations</label>
+            <input type="number" id="mcIterations" value="500" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-gray-200" />
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] text-gray-400">MC Resampling</label>
+            <select id="mcMethod" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200">
+              <option value="SHUFFLE">Shuffle (Sequence)</option>
+              <option value="BLOCK_BOOTSTRAP">Block Bootstrap</option>
+              <option value="STATIONARY_BOOTSTRAP">Stationary Bootstrap</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3 pt-1">
+          <div class="space-y-1">
+            <label class="text-[11px] text-gray-400">Bootstrap Method</label>
+            <select id="bootstrapMethod" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200">
+              <option value="STATIONARY" selected>Stationary (Politis-Romano)</option>
+              <option value="BLOCK">Moving Block (Künsch)</option>
+              <option value="IID">IID Percentile</option>
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] text-gray-400">Block Size (Trades)</label>
+            <input type="text" id="bootstrapBlockSize" placeholder="Auto" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-gray-200" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Execution Friction -->
+      <div class="border-t border-gray-800 pt-4 space-y-3">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+          <i class="fa-solid fa-receipt text-emerald-400"></i> Execution Friction
+        </h3>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="text-[11px] text-gray-400">Commission / Side ($)</label>
+            <input type="number" id="commissionInput" step="0.01" value="0.62" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-gray-200" />
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] text-gray-400">Slippage (Ticks)</label>
+            <input type="number" id="slippageInput" step="0.5" value="1.0" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-gray-200" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Run Action Button -->
+      <button id="runBacktestBtn" onclick="executeBacktest()" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-2.5 rounded-lg shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition transform active:scale-95">
+        <i class="fa-solid fa-play"></i> Run PineScript Backtest
+      </button>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 p-6 overflow-y-auto space-y-6">
+
+      <!-- Loading State -->
+      <div id="loadingOverlay" class="hidden flex items-center justify-center py-16">
+        <div class="text-center space-y-3">
+          <i class="fa-solid fa-circle-notch fa-spin text-4xl text-blue-500"></i>
+          <p class="text-sm font-medium text-gray-300">Parsing PineScript, simulating bar-by-bar execution & generating stress analytics...</p>
+        </div>
+      </div>
+
+      <!-- Content Container -->
+      <div id="dashboardContent" class="space-y-6">
+
+        <!-- Executive KPI Cards Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+          <!-- Net P&L -->
+          <div class="glass-card rounded-xl p-3.5 flex flex-col justify-between">
+            <span class="text-xs text-gray-400 font-medium">Net Profit (USD)</span>
+            <div class="mt-1">
+              <span id="kpiNetProfit" class="text-xl font-extrabold text-emerald-400">$0.00</span>
+              <span id="kpiReturnPct" class="text-xs font-semibold ml-1.5 text-emerald-500">(+0.0%)</span>
+            </div>
+            <span class="text-[11px] text-gray-500 mt-1">Total P&L After Friction</span>
+          </div>
+
+          <!-- Win Rate -->
+          <div class="glass-card rounded-xl p-3.5 flex flex-col justify-between">
+            <span class="text-xs text-gray-400 font-medium">Win Rate</span>
+            <div class="mt-1 flex items-baseline">
+              <span id="kpiWinRate" class="text-xl font-extrabold text-blue-400">0.0%</span>
+              <span id="kpiTradesCount" class="text-xs text-gray-400 ml-2">(0 trades)</span>
+            </div>
+            <span id="kpiPayoffRatio" class="text-[11px] text-gray-500 mt-1">Payoff: 0.0x</span>
+          </div>
+
+          <!-- Profit Factor -->
+          <div class="glass-card rounded-xl p-3.5 flex flex-col justify-between">
+            <span class="text-xs text-gray-400 font-medium">Profit Factor</span>
+            <div class="mt-1">
+              <span id="kpiProfitFactor" class="text-xl font-extrabold text-amber-400">0.00</span>
+            </div>
+            <span id="kpiExpectancy" class="text-[11px] text-gray-500 mt-1">Exp: $0.00/t</span>
+          </div>
+
+          <!-- Max Drawdown -->
+          <div class="glass-card rounded-xl p-3.5 flex flex-col justify-between">
+            <span class="text-xs text-gray-400 font-medium">Max Drawdown</span>
+            <div class="mt-1">
+              <span id="kpiMaxDD" class="text-xl font-extrabold text-rose-400">$0.00</span>
+              <span id="kpiMaxDDPct" class="text-xs font-semibold ml-1.5 text-rose-500">(0.0%)</span>
+            </div>
+            <span id="kpiRecovery" class="text-[11px] text-gray-500 mt-1">Recovery: 0.0x</span>
+          </div>
+
+          <!-- Sharpe / Sortino -->
+          <div class="glass-card rounded-xl p-3.5 flex flex-col justify-between">
+            <span class="text-xs text-gray-400 font-medium">Risk-Adjusted</span>
+            <div class="mt-1 flex items-baseline gap-2">
+              <div>
+                <span class="text-[10px] text-gray-400">SR: </span>
+                <span id="kpiSharpe" class="text-base font-bold text-gray-100">0.00</span>
+              </div>
+              <div>
+                <span class="text-[10px] text-gray-400">Sortino: </span>
+                <span id="kpiSortino" class="text-base font-bold text-gray-100">0.00</span>
+              </div>
+            </div>
+            <span id="kpiCalmar" class="text-[11px] text-gray-500 mt-1">Calmar: 0.00</span>
+          </div>
+
+          <!-- Tail VaR 95% -->
+          <div class="glass-card rounded-xl p-3.5 flex flex-col justify-between">
+            <span class="text-xs text-gray-400 font-medium">95% Value at Risk</span>
+            <div class="mt-1">
+              <span id="kpiVaR" class="text-xl font-extrabold text-purple-400">$0.00</span>
+            </div>
+            <span id="kpiCVaR" class="text-[11px] text-gray-500 mt-1">CVaR: $0.00</span>
+          </div>
+        </div>
+
+        <!-- Main Charts Row -->
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+          <!-- Main Equity Curve (2 Cols) -->
+          <div class="xl:col-span-2 glass-card rounded-xl p-5 space-y-3">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-2.5">
+              <h3 class="text-sm font-semibold text-gray-200 flex items-center gap-2">
+                <i class="fa-solid fa-chart-area text-blue-400"></i> Equity Trajectory & Underwater Drawdown
+              </h3>
+              <span id="chartPeriodBadge" class="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-400 border border-gray-700">Out-of-Sample</span>
+            </div>
+            <div class="h-72 w-full">
+              <canvas id="equityChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Monte Carlo Distribution (1 Col) -->
+          <div class="glass-card rounded-xl p-5 space-y-3">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-2.5">
+              <h3 class="text-sm font-semibold text-gray-200 flex items-center gap-2">
+                <i class="fa-solid fa-dice-d20 text-purple-400"></i> Monte Carlo Fan Envelopes
+              </h3>
+              <span class="text-xs text-gray-500">P5 to P95 Bands</span>
+            </div>
+            <div class="h-72 w-full">
+              <canvas id="monteCarloChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════════════════════ -->
+        <!-- ADVANCED QUANT DIAGNOSTICS: DSR, TURBULENCE, AND HRP PORTFOLIO -->
+        <!-- ═══════════════════════════════════════════════════════════════════════════════ -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- Deflated Sharpe Ratio (DSR) & Overfitting Defense -->
+          <div class="glass-card rounded-xl p-5 space-y-3">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-2.5">
+              <h3 class="text-sm font-semibold text-gray-200 flex items-center gap-2">
+                <i class="fa-solid fa-shield-halved text-cyan-400"></i> Deflated Sharpe Ratio (DSR)
+              </h3>
+              <span id="dsrSignificanceBadge" class="text-[10px] px-2 py-0.5 rounded font-mono bg-cyan-950/60 border border-cyan-800 text-cyan-300">110 Trials Adjusted</span>
+            </div>
+            <div class="space-y-2 text-xs">
+              <div class="flex justify-between items-center bg-gray-900/60 p-2 rounded">
+                <span class="text-gray-400">DSR Confidence:</span>
+                <span id="dsrProbability" class="font-bold text-cyan-400">--%</span>
+              </div>
+              <div class="flex justify-between items-center bg-gray-900/60 p-2 rounded">
+                <span class="text-gray-400">Probabilistic Sharpe (PSR):</span>
+                <span id="psrProbability" class="font-bold text-emerald-400">--%</span>
+              </div>
+              <div class="flex justify-between items-center bg-gray-900/60 p-2 rounded">
+                <span class="text-gray-400">Expected Max Sharpe (Null):</span>
+                <span id="dsrExpectedMax" class="font-mono text-gray-300">--</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-[11px] text-gray-400 pt-1">
+                <div class="bg-gray-900/40 p-1.5 rounded">Skewness: <span id="dsrSkewness" class="text-gray-200 font-mono">--</span></div>
+                <div class="bg-gray-900/40 p-1.5 rounded">Kurtosis: <span id="dsrKurtosis" class="text-gray-200 font-mono">--</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Financial Turbulence & Outlier Distance -->
+          <div class="glass-card rounded-xl p-5 space-y-3">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-2.5">
+              <h3 class="text-sm font-semibold text-gray-200 flex items-center gap-2">
+                <i class="fa-solid fa-bolt-lightning text-amber-400"></i> Financial Turbulence Index
+              </h3>
+              <span class="text-xs text-gray-500 font-mono">Mahalanobis Distance</span>
+            </div>
+            <div class="space-y-2 text-xs">
+              <div class="flex justify-between items-center bg-gray-900/60 p-2 rounded">
+                <span class="text-gray-400">Average Turbulence:</span>
+                <span id="turbAverage" class="font-bold text-amber-400">--</span>
+              </div>
+              <div class="flex justify-between items-center bg-gray-900/60 p-2 rounded">
+                <span class="text-gray-400">Peak Shock Distance:</span>
+                <span id="turbPeak" class="font-bold text-rose-400">--</span>
+              </div>
+              <div class="flex justify-between items-center bg-gray-900/60 p-2 rounded">
+                <span class="text-gray-400">Turbulent Days Exposure:</span>
+                <span id="turbDaysPct" class="font-mono text-gray-300">--%</span>
+              </div>
+              <div class="flex justify-between items-center bg-gray-900/60 p-2 rounded">
+                <span class="text-gray-400">Circuit Breaker Periods:</span>
+                <span id="turbBreakers" class="font-mono text-gray-300">--</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Multi-Strategy Hierarchical Risk Parity (HRP) Portfolio -->
+          <div class="glass-card rounded-xl p-5 space-y-3">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-2.5">
+              <h3 class="text-sm font-semibold text-gray-200 flex items-center gap-2">
+                <i class="fa-solid fa-layer-group text-purple-400"></i> Top-5 HRP Portfolio Sizing
+              </h3>
+              <span class="text-[10px] text-purple-400 bg-purple-950/40 border border-purple-800 px-2 py-0.5 rounded">10 Contracts</span>
+            </div>
+            <div id="hrpAllocationsContainer" class="space-y-1.5 text-xs max-h-40 overflow-y-auto">
+              <!-- Injected via JS -->
+            </div>
+            <div class="flex justify-between items-center pt-2 border-t border-gray-800 text-xs">
+              <span class="text-gray-400">Portfolio Ensemble Sharpe:</span>
+              <span id="hrpPortfolioSharpe" class="font-bold text-purple-400">--</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════════════════════ -->
+        <!-- BOOTSTRAP BACKTESTING & STATISTICAL INFERENCE (POLITIS-ROMANO & BLOCK RESAMPLING) -->
+        <!-- ═══════════════════════════════════════════════════════════════════════════════ -->
+        <div class="glass-card rounded-xl p-5 space-y-4 border border-indigo-900/50 shadow-xl shadow-indigo-950/20">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-gray-800 pb-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+                  <i class="fa-solid fa-calculator text-sm"></i>
+                </div>
+                <h3 class="text-sm font-bold text-gray-100 flex items-center gap-2">
+                  Bootstrap Backtesting & Statistical Inference
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">Politis-Romano & Künsch Block</span>
+                </h3>
+              </div>
+              <p class="text-xs text-gray-400 mt-1">
+                Non-parametric stationary bootstrap with spectral block length estimation, 90%/95%/99% confidence intervals, and zero-alpha null hypothesis tests.
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span id="bootMethodBadge" class="text-[10px] px-2.5 py-1 rounded font-mono bg-indigo-950/80 border border-indigo-800 text-indigo-300">STATIONARY</span>
+              <span id="bootBlockBadge" class="text-[10px] px-2.5 py-1 rounded font-mono bg-gray-900 border border-gray-700 text-gray-300">Opt Block: --</span>
+              <span id="bootSignificanceBadge" class="text-[10px] px-2.5 py-1 rounded font-mono bg-emerald-950/60 border border-emerald-800 text-emerald-300"><i class="fa-solid fa-shield-halved mr-1"></i> Significant</span>
+            </div>
+          </div>
+
+          <!-- Top Hypothesis Testing P-Values & Risk of Zero Alpha Bar -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="bg-gray-950/60 border border-gray-800/80 rounded-lg p-3">
+              <span class="text-[11px] text-gray-400">Null Sharpe P-Value (SR &le; 0)</span>
+              <div class="mt-1 flex items-baseline justify-between">
+                <span id="bootPValSharpe" class="text-lg font-black text-cyan-400">--%</span>
+                <span id="bootPValSharpeDesc" class="text-[10px] text-gray-500 font-mono">p &lt; 0.01</span>
+              </div>
+            </div>
+            <div class="bg-gray-950/60 border border-gray-800/80 rounded-lg p-3">
+              <span class="text-[11px] text-gray-400">Sub-Break-Even (PF &le; 1.0)</span>
+              <div class="mt-1 flex items-baseline justify-between">
+                <span id="bootPValPF" class="text-lg font-black text-amber-400">--%</span>
+                <span id="bootPValPFDesc" class="text-[10px] text-gray-500 font-mono">p &lt; 0.01</span>
+              </div>
+            </div>
+            <div class="bg-gray-950/60 border border-gray-800/80 rounded-lg p-3">
+              <span class="text-[11px] text-gray-400">Positive Expectancy Prob</span>
+              <div class="mt-1 flex items-baseline justify-between">
+                <span id="bootPValPos" class="text-lg font-black text-emerald-400">--%</span>
+                <span class="text-[10px] text-emerald-500 font-mono">P(&Delta; &gt; 0)</span>
+              </div>
+            </div>
+            <div class="bg-gray-950/60 border border-gray-800/80 rounded-lg p-3">
+              <span class="text-[11px] text-gray-400">Median Final Equity (P50)</span>
+              <div class="mt-1 flex items-baseline justify-between">
+                <span id="bootEqP50" class="text-lg font-black text-purple-400">--</span>
+                <span id="bootEqRange" class="text-[10px] text-gray-400 font-mono">P5-P95</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Main Grid: Fan Chart on Left (5 cols) + Confidence Interval Table on Right (7 cols) -->
+          <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 pt-1">
+            
+            <!-- Left: Bootstrap Fan Trajectory Chart -->
+            <div class="xl:col-span-5 bg-gray-950/50 border border-gray-800/80 rounded-lg p-4 flex flex-col justify-between space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2 text-xs font-semibold text-gray-200">
+                  <i class="fa-solid fa-chart-line text-indigo-400"></i>
+                  <span>Bootstrap Trajectory Fan Envelope</span>
+                </div>
+                <span class="text-[10px] font-mono text-gray-400">P5, P25, Median, P75, P95</span>
+              </div>
+              <div class="h-64 w-full">
+                <canvas id="bootstrapFanChart"></canvas>
+              </div>
+              <div class="flex items-center justify-center gap-3 text-[10px] text-gray-400 font-mono pt-1">
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-rose-500/80 inline-block"></span> P5</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-amber-500/80 inline-block"></span> P25</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-blue-500 inline-block"></span> P50</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-emerald-500/80 inline-block"></span> P75</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-purple-500 inline-block"></span> P95</span>
+              </div>
+            </div>
+
+            <!-- Right: Confidence Intervals Table -->
+            <div class="xl:col-span-7 bg-gray-950/50 border border-gray-800/80 rounded-lg p-4 flex flex-col justify-between space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2 text-xs font-semibold text-gray-200">
+                  <i class="fa-solid fa-scale-balanced text-cyan-400"></i>
+                  <span>Stationary Resampled Metric Confidence Intervals</span>
+                </div>
+                <span id="bootIterationsBadge" class="text-[10px] font-mono text-gray-400">1,000 Iterations</span>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead>
+                    <tr class="text-gray-400 border-b border-gray-800 text-[11px]">
+                      <th class="py-2 px-2.5">Metric</th>
+                      <th class="py-2 px-2.5 text-right">Observed</th>
+                      <th class="py-2 px-2.5 text-right text-gray-300">Mean (&theta;*)</th>
+                      <th class="py-2 px-2.5 text-right text-cyan-400/90">90% CI</th>
+                      <th class="py-2 px-2.5 text-right text-emerald-400">95% CI</th>
+                      <th class="py-2 px-2.5 text-right text-purple-400/90">99% CI</th>
+                      <th class="py-2 px-2.5 text-right text-gray-400">SE</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bootstrapMetricsTableBody" class="divide-y divide-gray-800/60 font-mono text-[11px]">
+                    <!-- Injected via JS -->
+                  </tbody>
+                </table>
+              </div>
+              <p class="text-[10px] text-gray-500 pt-1">
+                Note: Non-overlapping 0 on the 95% Confidence Interval for Sharpe/Expectancy indicates statistically significant trading edge against the Efficient Market Hypothesis null at &alpha;=0.05.
+              </p>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Secondary Diagnostics Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- Multi-Timeframe Matrix (7D, 1M, 3M, 1Y, 10Y) -->
+          <div class="glass-card rounded-xl p-5 space-y-3 lg:col-span-2">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-2.5">
+              <h3 class="text-sm font-semibold text-gray-200 flex items-center gap-2">
+                <i class="fa-solid fa-table-cells text-amber-400"></i> Multi-Timeframe Performance Breakdown
+              </h3>
+              <span class="text-xs text-gray-400">7-Day, 1-Month, 3-Month, 1-Year, 10-Year</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="text-gray-400 border-b border-gray-800">
+                    <th class="py-2 px-3">Horizon Window</th>
+                    <th class="py-2 px-3 text-right">Trades</th>
+                    <th class="py-2 px-3 text-right">Win Rate</th>
+                    <th class="py-2 px-3 text-right">Net P&L ($)</th>
+                    <th class="py-2 px-3 text-right">Profit Factor</th>
+                    <th class="py-2 px-3 text-right">Max DD ($)</th>
+                    <th class="py-2 px-3 text-right">Max DD (%)</th>
+                  </tr>
+                </thead>
+                <tbody id="timeframeTableBody" class="divide-y divide-gray-800/60">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Slippage Sensitivity Stress Test -->
+          <div class="glass-card rounded-xl p-5 space-y-3">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-2.5">
+              <h3 class="text-sm font-semibold text-gray-200 flex items-center gap-2">
+                <i class="fa-solid fa-tornado text-rose-400"></i> Slippage Fragility
+              </h3>
+              <span class="text-xs text-gray-400">0t to 4t Stress</span>
+            </div>
+            <div class="h-48 w-full">
+              <canvas id="slippageChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detailed Trade Log Table -->
+        <div class="glass-card rounded-xl p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-gray-800 pb-3">
+            <div>
+              <h3 class="text-sm font-semibold text-gray-200 flex items-center gap-2">
+                <i class="fa-solid fa-list-check text-emerald-400"></i> Granular Trade Logs & Excursion Records
+              </h3>
+              <p class="text-xs text-gray-500">MFE (Peak Potential), MAE (Adverse Drawdown), Duration & R-Multiples</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <select id="tradeFilterSide" onchange="filterTrades()" class="bg-gray-800 border border-gray-700 text-xs rounded px-2.5 py-1 text-gray-300">
+                <option value="ALL">All Sides</option>
+                <option value="BUY">Long Only</option>
+                <option value="SELL">Short Only</option>
+              </select>
+              <select id="tradeFilterOutcome" onchange="filterTrades()" class="bg-gray-800 border border-gray-700 text-xs rounded px-2.5 py-1 text-gray-300">
+                <option value="ALL">All Outcomes</option>
+                <option value="WIN">Winners Only</option>
+                <option value="LOSS">Losers Only</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto max-h-96">
+            <table class="w-full text-left text-xs">
+              <thead class="sticky top-0 bg-gray-900 text-gray-400 border-b border-gray-800">
+                <tr>
+                  <th class="py-2.5 px-3">#</th>
+                  <th class="py-2.5 px-3">Side</th>
+                  <th class="py-2.5 px-3">Entry Time</th>
+                  <th class="py-2.5 px-3 text-right">Entry ($)</th>
+                  <th class="py-2.5 px-3 text-right">Exit ($)</th>
+                  <th class="py-2.5 px-3">Reason</th>
+                  <th class="py-2.5 px-3 text-right">Dur (m)</th>
+                  <th class="py-2.5 px-3 text-right">Points</th>
+                  <th class="py-2.5 px-3 text-right">Net P&L ($)</th>
+                  <th class="py-2.5 px-3 text-right">MFE ($)</th>
+                  <th class="py-2.5 px-3 text-right">MAE ($)</th>
+                  <th class="py-2.5 px-3 text-right">R-Mult</th>
+                </tr>
+              </thead>
+              <tbody id="tradeLogBody" class="divide-y divide-gray-800/40">
+                <!-- Injected via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════════════════════ -->
+        <!-- SYSTEM ARCHITECTURE & ENGINE SPECIFICATION OVERVIEW -->
+        <!-- ═══════════════════════════════════════════════════════════════════════════════ -->
+        <div class="border border-gray-800 bg-gray-900/50 rounded-xl p-5 space-y-5">
+          <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                <i class="fa-solid fa-server text-sm"></i>
+              </div>
+              <div>
+                <h3 class="text-sm font-semibold text-gray-200">System Architecture & Engine Operational Specifications</h3>
+                <p class="text-xs text-gray-400">Institutional microstructural backtesting and execution fidelity breakdown</p>
+              </div>
+            </div>
+            <span class="text-[11px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-800 px-2.5 py-1 rounded">
+              <i class="fa-solid fa-circle-check mr-1"></i> Microstructure Engine Active
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            
+            <!-- Card 1: Data Pipeline & Sampling -->
+            <div class="bg-gray-950/60 border border-gray-800/80 rounded-lg p-4 space-y-2.5">
+              <div class="flex items-center gap-2 text-indigo-400 text-xs font-semibold uppercase tracking-wider">
+                <i class="fa-solid fa-database"></i>
+                <span>1. Continuous Data Feed</span>
+              </div>
+              <p class="text-[11px] text-gray-400 leading-relaxed">
+                Ingests historical <strong class="text-gray-200">CME continuous futures (MNQ=F / NQ=F)</strong> datasets. Reconstructs intraday 1-minute price bars via Brownian Bridges and Merton Jump-Diffusion to model fat-tailed volatility and opening gaps.
+              </p>
+              <ul class="text-[10px] text-gray-500 space-y-1 font-mono">
+                <li>• Tick Size: <span class="text-gray-300">0.25 pt ($0.50/contract)</span></li>
+                <li>• Multiplier: <span class="text-gray-300">$2.00 per full point</span></li>
+                <li>• Timezone: <span class="text-gray-300">America/New_York (ET)</span></li>
+              </ul>
+            </div>
+
+            <!-- Card 2: 40-Ticks/Bar Microstructure -->
+            <div class="bg-gray-950/60 border border-gray-800/80 rounded-lg p-4 space-y-2.5">
+              <div class="flex items-center gap-2 text-emerald-400 text-xs font-semibold uppercase tracking-wider">
+                <i class="fa-solid fa-microchip"></i>
+                <span>2. 40-Tick Intra-Bar Engine</span>
+              </div>
+              <p class="text-[11px] text-gray-400 leading-relaxed">
+                Each historical candle is decomposed into a <strong class="text-gray-200">40-tick micro-auction path</strong> (<code class="text-emerald-300">Open &rarr; Noise &rarr; Extreme 1 &rarr; Retracement &rarr; Extreme 2 &rarr; Close</code>). Evaluates Stop Losses & Take Profits on actual sub-bar price flow rather than static bar endpoints.
+              </p>
+              <ul class="text-[10px] text-gray-500 space-y-1 font-mono">
+                <li>• Quantization: <span class="text-gray-300">Exact 0.25 tick steps</span></li>
+                <li>• SL Priority: <span class="text-gray-300">Conservative double-touch</span></li>
+                <li>• Intrabar Stops: <span class="text-gray-300">Tick-level bracket tracking</span></li>
+              </ul>
+            </div>
+
+            <!-- Card 3: Next-Bar Open Execution Lag -->
+            <div class="bg-gray-950/60 border border-gray-800/80 rounded-lg p-4 space-y-2.5">
+              <div class="flex items-center gap-2 text-amber-400 text-xs font-semibold uppercase tracking-wider">
+                <i class="fa-solid fa-hourglass-half"></i>
+                <span>3. Real-World Execution Lag</span>
+              </div>
+              <p class="text-[11px] text-gray-400 leading-relaxed">
+                Enforces zero lookahead bias (<code class="text-amber-300">process_orders_on_close = false</code>). Signals finalized at Bar <span class="text-gray-200">N</span> Close are queued and filled at Bar <span class="text-gray-200">N+1</span> Open, applying realistic bid/ask spread crossing and latency.
+              </p>
+              <ul class="text-[10px] text-gray-500 space-y-1 font-mono">
+                <li>• Commissions: <span class="text-gray-300">$1.24 / round-trip</span></li>
+                <li>• Slippage: <span class="text-gray-300">1.0 tick ($0.50 crossing)</span></li>
+                <li>• Fill Model: <span class="text-gray-300">Next-bar open market fill</span></li>
+              </ul>
+            </div>
+
+            <!-- Card 4: PineScript Transpiler & Stress Tests -->
+            <div class="bg-gray-950/60 border border-gray-800/80 rounded-lg p-4 space-y-2.5">
+              <div class="flex items-center gap-2 text-purple-400 text-xs font-semibold uppercase tracking-wider">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>4. Risk & Monte Carlo Suite</span>
+              </div>
+              <p class="text-[11px] text-gray-400 leading-relaxed">
+                Executes native Python translations of TradingView <strong class="text-gray-200">PineScript v5 ASTs</strong>. Evaluates Parametric 95% / 99% VaR, CVaR, Sharpe, Sortino, and performs <strong class="text-gray-200">Stationary Bootstrap Monte Carlo simulations</strong> across crisis regimes.
+              </p>
+              <ul class="text-[10px] text-gray-500 space-y-1 font-mono">
+                <li>• Regimes: <span class="text-gray-300">COVID, Fed Bear, Volmageddon</span></li>
+                <li>• Resampling: <span class="text-gray-300">Block & Stationary Bootstrap</span></li>
+                <li>• Ruin Risk: <span class="text-gray-300">Equity drawdown confidence</span></li>
+              </ul>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- JavaScript Application Logic -->
+  <script>
+    let equityChart = null;
+    let monteCarloChart = null;
+    let slippageChart = null;
+    let bootstrapFanChart = null;
+    let globalTrades = [];
+    let suiteDictionary = {};
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      try {
+        await loadServerConfig();
+        loadSelectedSuiteCode();
+      } catch (e) {
+        console.error("Config initialization error:", e);
+      }
+      executeBacktest();
+    });
+
+    async function loadServerConfig() {
+      try {
+        const res = await fetch("/api/config");
+        const data = await res.json();
+        if (data.strategy_suite) {
+          const sel = document.getElementById("strategySuiteSelect");
+          sel.innerHTML = "";
+          
+          // Group strategies by category
+          const categories = {};
+          data.strategy_suite.forEach(item => {
+            suiteDictionary[item.id] = item.code;
+            const cat = item.category || "General Strategies";
+            if (!categories[cat]) categories[cat] = [];
+            categories[cat].push(item);
+          });
+
+          // Sort categories so PROPRIETARY suite is ALWAYS strictly first
+          const sortedCats = Object.keys(categories).sort((a, b) => {
+            if (a.includes("PROPRIETARY")) return -1;
+            if (b.includes("PROPRIETARY")) return 1;
+            return a.localeCompare(b);
+          });
+
+          // Populate optgroups
+          sortedCats.forEach(cat => {
+            const optgroup = document.createElement("optgroup");
+            optgroup.label = `━━ ${cat} ━━`;
+            categories[cat].forEach(item => {
+              const opt = document.createElement("option");
+              opt.value = item.id;
+              opt.textContent = `${item.name}`;
+              optgroup.appendChild(opt);
+            });
+            sel.appendChild(optgroup);
+          });
+
+          // Select first proprietary strategy by default
+          if (sel.options.length > 0) {
+            sel.selectedIndex = 0;
+          }
+        }
+      } catch (err) {
+        console.error("Config fetch error:", err);
+      }
+    }
+
+    async function onSuiteStrategyChange() {
+      await loadSelectedSuiteCode();
+    }
+
+    async function loadSelectedSuiteCode() {
+      const suiteId = document.getElementById("strategySuiteSelect").value;
+      if (!suiteId) return;
+      
+      if (suiteDictionary[suiteId]) {
+        document.getElementById("pineCodeEditor").value = suiteDictionary[suiteId];
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/strategy_code?id=${encodeURIComponent(suiteId)}`);
+        const data = await res.json();
+        if (data.success && data.code) {
+          suiteDictionary[suiteId] = data.code;
+          document.getElementById("pineCodeEditor").value = data.code;
+        }
+      } catch (err) {
+        console.warn("Failed fetching strategy code:", err);
+      }
+    }
+
+    function clearEditor() {
+      document.getElementById("pineCodeEditor").value = "";
+    }
+
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        document.getElementById("pineCodeEditor").value = e.target.result;
+      };
+      reader.readAsText(file);
+    }
+
+    async function executeBacktest() {
+      const loading = document.getElementById("loadingOverlay");
+      const content = document.getElementById("dashboardContent");
+      const runBtn = document.getElementById("runBacktestBtn");
+
+      if (loading) loading.classList.remove("hidden");
+      if (content) content.classList.add("opacity-50", "pointer-events-none");
+      if (runBtn) runBtn.disabled = true;
+
+      const customPine = document.getElementById("pineCodeEditor") ? document.getElementById("pineCodeEditor").value.trim() : "";
+      const suiteId = document.getElementById("strategySuiteSelect") ? document.getElementById("strategySuiteSelect").value : "orb";
+
+      const payload = {
+        strategy: suiteId || "orb",
+        custom_pinescript: customPine,
+        days: parseInt(document.getElementById("lookbackDays") ? document.getElementById("lookbackDays").value : 180),
+        capital: parseFloat(document.getElementById("capitalInput") ? document.getElementById("capitalInput").value : 50000),
+        split_mode: document.getElementById("splitMode") ? document.getElementById("splitMode").value : "train_test",
+        regime: document.getElementById("regimeSelect") ? document.getElementById("regimeSelect").value : "none",
+        monte_carlo_iterations: parseInt(document.getElementById("mcIterations") ? document.getElementById("mcIterations").value : 500),
+        monte_carlo_method: document.getElementById("mcMethod") ? document.getElementById("mcMethod").value : "SHUFFLE",
+        bootstrap_method: document.getElementById("bootstrapMethod") ? document.getElementById("bootstrapMethod").value : "STATIONARY",
+        bootstrap_iterations: parseInt(document.getElementById("mcIterations") ? document.getElementById("mcIterations").value : 500),
+        bootstrap_block_size: (document.getElementById("bootstrapBlockSize") && document.getElementById("bootstrapBlockSize").value.trim()) ? parseFloat(document.getElementById("bootstrapBlockSize").value.trim()) : null,
+        commission: parseFloat(document.getElementById("commissionInput") ? document.getElementById("commissionInput").value : 0.62),
+        slippage_ticks: parseFloat(document.getElementById("slippageInput") ? document.getElementById("slippageInput").value : 1.0),
+        contracts: 1
+      };
+
+      try {
+        const res = await fetch("/api/run_backtest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          try {
+            updateDashboard(data);
+          } catch (renderErr) {
+            console.error("Dashboard render error:", renderErr);
+          }
+          // Progressively fetch 1-Year & 10-Year deep historical breakdown in background
+          fetchLongTimeframes(payload);
+        } else {
+          console.warn("Server returned error:", data);
+        }
+      } catch (err) {
+        console.error("Backtest execution failed:", err);
+      } finally {
+        if (loading) loading.classList.add("hidden");
+        if (content) content.classList.remove("opacity-50", "pointer-events-none");
+        if (runBtn) runBtn.disabled = false;
+      }
+    }
+
+    async function fetchLongTimeframes(payload) {
+      try {
+        const res = await fetch("/api/compute_timeframes_long", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success && data.timeframe_matrix) {
+          renderTimeframeMatrix(data.timeframe_matrix, false);
+        }
+      } catch (err) {
+        console.warn("Async long timeframe fetch error:", err);
+      }
+    }
+
+    function updateDashboard(data) {
+      const stats = data.stats;
+      globalTrades = data.trades || [];
+
+      // Update Data Quality Badge
+      const dqBadge = document.getElementById("dataQualityBadge");
+      const dqText = document.getElementById("dataQualityText");
+      if (data.data_quality) {
+        dqBadge.classList.remove("hidden");
+        dqText.textContent = `Data Validated: ${data.data_quality.valid_pct.toFixed(1)}% Clean (${data.data_quality.total_bars.toLocaleString()} bars)`;
+      }
+
+      // Update KPIs
+      const isProfitable = stats.net_profit_usd >= 0;
+      const netElem = document.getElementById("kpiNetProfit");
+      netElem.textContent = `$${stats.net_profit_usd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      netElem.className = `text-xl font-extrabold ${isProfitable ? 'text-emerald-400' : 'text-rose-400'}`;
+
+      const retElem = document.getElementById("kpiReturnPct");
+      retElem.textContent = `(${stats.total_return_pct > 0 ? '+' : ''}${stats.total_return_pct.toFixed(2)}%)`;
+      retElem.className = `text-xs font-semibold ml-1.5 ${isProfitable ? 'text-emerald-500' : 'text-rose-500'}`;
+
+      document.getElementById("kpiWinRate").textContent = `${stats.win_rate.toFixed(1)}%`;
+      document.getElementById("kpiTradesCount").textContent = `(${stats.total_trades} trades)`;
+      document.getElementById("kpiPayoffRatio").textContent = `Payoff: ${stats.payoff_ratio.toFixed(2)}x (W: $${stats.average_win_usd.toFixed(0)} / L: $${stats.average_loss_usd.toFixed(0)})`;
+
+      document.getElementById("kpiProfitFactor").textContent = stats.profit_factor.toFixed(2);
+      document.getElementById("kpiExpectancy").textContent = `Exp: $${stats.expectancy_usd_per_trade.toFixed(2)}/t (${stats.expectancy_points_per_trade.toFixed(1)} pts)`;
+
+      document.getElementById("kpiMaxDD").textContent = `$${stats.max_drawdown_usd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      document.getElementById("kpiMaxDDPct").textContent = `(${stats.max_drawdown_pct.toFixed(2)}%)`;
+      document.getElementById("kpiRecovery").textContent = `Recovery Factor: ${stats.recovery_factor.toFixed(2)}x`;
+
+      document.getElementById("kpiSharpe").textContent = stats.sharpe_ratio.toFixed(2);
+      document.getElementById("kpiSortino").textContent = stats.sortino_ratio.toFixed(2);
+      document.getElementById("kpiCalmar").textContent = `Calmar: ${stats.calmar_ratio.toFixed(2)} | Half Kelly: ${stats.half_kelly_fraction.toFixed(2)}`;
+
+      if (data.tail_risk) {
+        document.getElementById("kpiVaR").textContent = `$${data.tail_risk.var_dollar.toFixed(2)}`;
+        document.getElementById("kpiCVaR").textContent = `CVaR: $${data.tail_risk.cvar_dollar.toFixed(2)} | Ruin: ${data.tail_risk.risk_of_ruin_pct.toFixed(1)}%`;
+      }
+
+      // Render DSR & Multiple Testing Diagnostics
+      if (data.deflated_sharpe) {
+        const dsr = data.deflated_sharpe;
+        document.getElementById("dsrProbability").textContent = `${dsr.dsr_probability.toFixed(1)}%`;
+        document.getElementById("psrProbability").textContent = `${dsr.psr_probability.toFixed(1)}%`;
+        document.getElementById("dsrExpectedMax").textContent = `${dsr.expected_max_sharpe.toFixed(2)}`;
+        document.getElementById("dsrSkewness").textContent = `${dsr.skewness.toFixed(2)}`;
+        document.getElementById("dsrKurtosis").textContent = `${dsr.kurtosis.toFixed(2)}`;
+        
+        const badge = document.getElementById("dsrSignificanceBadge");
+        if (dsr.is_statistically_significant) {
+          badge.textContent = "Statistically Significant (p < 0.05)";
+          badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-emerald-950/60 border border-emerald-800 text-emerald-300";
+        } else {
+          badge.textContent = "Overfitting Risk (p >= 0.05)";
+          badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-amber-950/60 border border-amber-800 text-amber-300";
+        }
+      }
+
+      // Render Turbulence Diagnostics
+      if (data.turbulence) {
+        const turb = data.turbulence;
+        document.getElementById("turbAverage").textContent = `${turb.avg_turbulence.toFixed(2)}σ`;
+        document.getElementById("turbPeak").textContent = `${turb.max_turbulence.toFixed(2)}σ`;
+        document.getElementById("turbDaysPct").textContent = `${turb.turbulent_days_pct.toFixed(1)}% of bars`;
+        document.getElementById("turbBreakers").textContent = `${turb.high_turbulence_periods} shocks`;
+      }
+
+      // Render Multi-Strategy HRP Portfolio
+      if (data.hrp_portfolio) {
+        const hrp = data.hrp_portfolio;
+        document.getElementById("hrpPortfolioSharpe").textContent = `${hrp.portfolio_sharpe.toFixed(2)} Sharpe`;
+        const container = document.getElementById("hrpAllocationsContainer");
+        container.innerHTML = "";
+        
+        Object.keys(hrp.weights).forEach(name => {
+          const w = (hrp.weights[name] * 100).toFixed(1);
+          const ct = hrp.contracts[name] || 1;
+          const row = document.createElement("div");
+          row.className = "flex justify-between items-center bg-gray-900/60 px-2.5 py-1.5 rounded";
+          row.innerHTML = `
+            <span class="text-gray-300 font-medium">${name}</span>
+            <span class="font-mono text-purple-300">${w}% <span class="text-gray-500 text-[10px]">(${ct} ct)</span></span>
+          `;
+          container.appendChild(row);
+        });
+      }
+
+      // Render Charts & Quantitative Diagnostics
+      renderEquityChart(data.equity_curve);
+      if (data.monte_carlo) {
+        renderMonteCarloChart(data.monte_carlo.distribution);
+        renderSlippageChart(data.monte_carlo.sensitivity);
+      }
+      if (data.bootstrap_analysis) {
+        renderBootstrapAnalysis(data.bootstrap_analysis);
+      }
+      renderTimeframeMatrix(data.timeframe_matrix);
+      renderTradeLog(globalTrades);
+    }
+
+    function renderBootstrapAnalysis(boot) {
+      if (!boot) return;
+
+      // Badges
+      const methodBadge = document.getElementById("bootMethodBadge");
+      if (methodBadge) methodBadge.textContent = `${boot.method} BOOTSTRAP`;
+      const blockBadge = document.getElementById("bootBlockBadge");
+      if (blockBadge) blockBadge.textContent = `Opt Block: ${boot.optimal_block_size}t (N=${boot.sample_size})`;
+      const iterBadge = document.getElementById("bootIterationsBadge");
+      if (iterBadge) iterBadge.textContent = `${boot.iterations.toLocaleString()} Iterations`;
+
+      // Hypothesis Testing P-Values
+      const pValSharpeElem = document.getElementById("bootPValSharpe");
+      if (pValSharpeElem) {
+        pValSharpeElem.textContent = `${boot.p_value_sharpe_zero.toFixed(1)}%`;
+        const pDesc = document.getElementById("bootPValSharpeDesc");
+        if (pDesc) {
+          pDesc.textContent = boot.p_value_sharpe_zero < 1.0 ? "p < 0.01 (Strong Alpha)" : (boot.p_value_sharpe_zero < 5.0 ? "p < 0.05 (Alpha)" : "p ≥ 0.05 (Null)");
+          pDesc.className = `text-[10px] font-mono ${boot.p_value_sharpe_zero < 5.0 ? 'text-emerald-400' : 'text-amber-400'}`;
+        }
+      }
+
+      const pValPFElem = document.getElementById("bootPValPF");
+      if (pValPFElem) {
+        pValPFElem.textContent = `${boot.p_value_profit_factor_one.toFixed(1)}%`;
+        const pfDesc = document.getElementById("bootPValPFDesc");
+        if (pfDesc) {
+          pfDesc.textContent = boot.p_value_profit_factor_one < 5.0 ? "Edge Significant" : "Marginal PF";
+          pfDesc.className = `text-[10px] font-mono ${boot.p_value_profit_factor_one < 5.0 ? 'text-emerald-400' : 'text-amber-400'}`;
+        }
+      }
+
+      const pValPosElem = document.getElementById("bootPValPos");
+      if (pValPosElem) pValPosElem.textContent = `${boot.p_value_positive_expectancy.toFixed(1)}%`;
+
+      const eqP50Elem = document.getElementById("bootEqP50");
+      if (eqP50Elem) eqP50Elem.textContent = `$${boot.bootstrap_equities_p50.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
+
+      const eqRangeElem = document.getElementById("bootEqRange");
+      if (eqRangeElem) eqRangeElem.textContent = `$${boot.bootstrap_equities_p5.toLocaleString(undefined, {maximumFractionDigits: 0})} - $${boot.bootstrap_equities_p95.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+
+      const sigBadge = document.getElementById("bootSignificanceBadge");
+      if (sigBadge) {
+        if (boot.p_value_sharpe_zero < 5.0 && boot.p_value_profit_factor_one < 5.0) {
+          sigBadge.className = "text-[10px] px-2.5 py-1 rounded font-mono bg-emerald-950/60 border border-emerald-800 text-emerald-300";
+          sigBadge.innerHTML = `<i class="fa-solid fa-shield-halved mr-1"></i> Significant Edge (p<0.05)`;
+        } else {
+          sigBadge.className = "text-[10px] px-2.5 py-1 rounded font-mono bg-amber-950/60 border border-amber-800 text-amber-300";
+          sigBadge.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> Null Risk (p≥0.05)`;
+        }
+      }
+
+      // Confidence Intervals Table
+      const tbody = document.getElementById("bootstrapMetricsTableBody");
+      if (tbody) {
+        tbody.innerHTML = "";
+        const metricRows = [
+          { name: "Sharpe Ratio (Ann.)", ci: boot.sharpe_ci, format: v => v.toFixed(2), isPnl: false },
+          { name: "Profit Factor", ci: boot.profit_factor_ci, format: v => v.toFixed(2), isPnl: false },
+          { name: "Win Rate (%)", ci: boot.win_rate_ci, format: v => `${v.toFixed(1)}%`, isPnl: false },
+          { name: "Expected Max DD ($)", ci: boot.max_drawdown_ci, format: v => `$${v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, isPnl: false },
+          { name: "Net Profit ($)", ci: boot.net_profit_ci, format: v => `$${v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, isPnl: true }
+        ];
+
+        metricRows.forEach(row => {
+          const ci = row.ci;
+          if (!ci) return;
+          const tr = document.createElement("tr");
+          tr.className = "hover:bg-gray-800/40 transition";
+          
+          let obsClass = "text-gray-100";
+          if (row.isPnl) {
+            obsClass = ci.observed >= 0 ? "text-emerald-400 font-bold" : "text-rose-400 font-bold";
+          }
+
+          tr.innerHTML = `
+            <td class="py-2 px-2.5 font-sans font-semibold text-gray-200">${row.name}</td>
+            <td class="py-2 px-2.5 text-right font-bold ${obsClass}">${row.format(ci.observed)}</td>
+            <td class="py-2 px-2.5 text-right text-gray-300">${row.format(ci.mean_bootstrap)}</td>
+            <td class="py-2 px-2.5 text-right text-cyan-300">[${row.format(ci.ci_lower_90)}, ${row.format(ci.ci_upper_90)}]</td>
+            <td class="py-2 px-2.5 text-right text-emerald-300 font-semibold">[${row.format(ci.ci_lower_95)}, ${row.format(ci.ci_upper_95)}]</td>
+            <td class="py-2 px-2.5 text-right text-purple-300">[${row.format(ci.ci_lower_99)}, ${row.format(ci.ci_upper_99)}]</td>
+            <td class="py-2 px-2.5 text-right text-gray-400">&plusmn;${typeof ci.std_error === 'number' ? ci.std_error.toFixed(2) : ci.std_error}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      // Fan Chart Rendering
+      if (boot.fan_trajectories) {
+        renderBootstrapFanChart(boot.fan_trajectories);
+      }
+    }
+
+    function renderBootstrapFanChart(fan) {
+      const canvas = document.getElementById("bootstrapFanChart");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (bootstrapFanChart) bootstrapFanChart.destroy();
+
+      bootstrapFanChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: fan.step_labels,
+          datasets: [
+            {
+              label: '95th Percentile (Best)',
+              data: fan.p95,
+              borderColor: '#8b5cf6',
+              backgroundColor: 'rgba(139, 92, 246, 0.12)',
+              borderWidth: 1.5,
+              borderDash: [4, 4],
+              pointRadius: 0,
+              fill: 1,
+              tension: 0.25
+            },
+            {
+              label: '75th Percentile',
+              data: fan.p75,
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.15)',
+              borderWidth: 1.5,
+              pointRadius: 0,
+              fill: 2,
+              tension: 0.25
+            },
+            {
+              label: 'Median Expectation (50th)',
+              data: fan.p50,
+              borderColor: '#3b82f6',
+              backgroundColor: 'transparent',
+              borderWidth: 2.5,
+              pointRadius: 0,
+              fill: false,
+              tension: 0.25
+            },
+            {
+              label: '25th Percentile',
+              data: fan.p25,
+              borderColor: '#fb923c',
+              backgroundColor: 'rgba(251, 146, 60, 0.15)',
+              borderWidth: 1.5,
+              pointRadius: 0,
+              fill: 4,
+              tension: 0.25
+            },
+            {
+              label: '5th Percentile (Worst)',
+              data: fan.p5,
+              borderColor: '#f43f5e',
+              backgroundColor: 'transparent',
+              borderWidth: 1.5,
+              borderDash: [4, 4],
+              pointRadius: 0,
+              fill: false,
+              tension: 0.25
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => `${ctx.dataset.label}: $${ctx.raw.toLocaleString(undefined, {maximumFractionDigits: 0})}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(55, 65, 81, 0.2)' },
+              ticks: { color: '#9ca3af', font: { size: 10 }, maxTicksLimit: 6 }
+            },
+            y: {
+              grid: { color: 'rgba(55, 65, 81, 0.2)' },
+              ticks: { color: '#9ca3af', callback: v => `$${v.toLocaleString()}` }
+            }
+          }
+        }
+      });
+    }
+
+    function renderEquityChart(curve) {
+      const ctx = document.getElementById("equityChart").getContext("2d");
+      if (equityChart) equityChart.destroy();
+
+      const labels = curve.map(c => c.timestamp.split(" ")[0]);
+      const equities = curve.map(c => c.equity);
+
+      equityChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Account Equity ($)',
+            data: equities,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.08)',
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: true,
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: 'rgba(55, 65, 81, 0.2)' }, ticks: { color: '#9ca3af', maxTicksLimit: 8 } },
+            y: { grid: { color: 'rgba(55, 65, 81, 0.2)' }, ticks: { color: '#9ca3af', callback: v => `$${v.toLocaleString()}` } }
+          }
+        }
+      });
+    }
+
+    function renderMonteCarloChart(dist) {
+      const ctx = document.getElementById("monteCarloChart").getContext("2d");
+      if (monteCarloChart) monteCarloChart.destroy();
+
+      const percentiles = [
+        { label: '5th (Worst)', val: dist.equity_p5, color: '#f43f5e' },
+        { label: '25th', val: dist.equity_p25, color: '#fb923c' },
+        { label: '50th (Median)', val: dist.equity_p50, color: '#3b82f6' },
+        { label: '75th', val: dist.equity_p75, color: '#10b981' },
+        { label: '95th (Best)', val: dist.equity_p95, color: '#8b5cf6' },
+      ];
+
+      monteCarloChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: percentiles.map(p => p.label),
+          datasets: [{
+            data: percentiles.map(p => p.val),
+            backgroundColor: percentiles.map(p => p.color),
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => `Final Equity: $${ctx.raw.toLocaleString()}` } }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 10 } } },
+            y: {
+              grid: { color: 'rgba(55, 65, 81, 0.2)' },
+              ticks: { color: '#9ca3af', callback: v => `$${v.toLocaleString()}` }
+            }
+          }
+        }
+      });
+    }
+
+    function renderSlippageChart(sensitivity) {
+      const ctx = document.getElementById("slippageChart").getContext("2d");
+      if (slippageChart) slippageChart.destroy();
+
+      const labels = sensitivity.map(s => `${s.slippage_ticks}t`);
+      const pnls = sensitivity.map(s => s.net_profit_usd);
+
+      slippageChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Net P&L ($)',
+            data: pnls,
+            borderColor: '#ec4899',
+            backgroundColor: 'rgba(236, 72, 153, 0.1)',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointBackgroundColor: '#ec4899',
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: 'rgba(55, 65, 81, 0.2)' }, ticks: { color: '#9ca3af' } },
+            y: { grid: { color: 'rgba(55, 65, 81, 0.2)' }, ticks: { color: '#9ca3af', callback: v => `$${v.toLocaleString()}` } }
+          }
+        }
+      });
+    }
+
+    function renderTimeframeMatrix(matrix, showLoadingPlaceholders = true) {
+      const tbody = document.getElementById("timeframeTableBody");
+      tbody.innerHTML = "";
+      if (!matrix || matrix.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-gray-500">No multi-timeframe slices available</td></tr>`;
+        return;
+      }
+
+      // Track which tiers exist
+      const renderedLabels = new Set();
+
+      matrix.forEach(row => {
+        renderedLabels.add(row.label);
+        const isWin = row.net_profit_usd >= 0;
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-gray-800/40 transition";
+        tr.innerHTML = `
+          <td class="py-2 px-3 font-semibold text-gray-200">${row.label}</td>
+          <td class="py-2 px-3 text-right text-gray-300">${row.trades}</td>
+          <td class="py-2 px-3 text-right text-blue-400 font-medium">${row.win_rate.toFixed(1)}%</td>
+          <td class="py-2 px-3 text-right font-bold ${isWin ? 'text-emerald-400' : 'text-rose-400'}">$${row.net_profit_usd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+          <td class="py-2 px-3 text-right text-amber-300">${row.profit_factor.toFixed(2)}</td>
+          <td class="py-2 px-3 text-right text-rose-400">$${row.max_drawdown_usd.toFixed(2)}</td>
+          <td class="py-2 px-3 text-right text-rose-400">${row.max_drawdown_pct.toFixed(2)}%</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // If 1-Year or 10-Year are pending, display clean "Loading..." rows across all columns
+      if (showLoadingPlaceholders) {
+        if (!renderedLabels.has("1-Year")) {
+          const tr1y = document.createElement("tr");
+          tr1y.className = "bg-gray-900/40 text-gray-400 animate-pulse border-b border-gray-800/40";
+          tr1y.innerHTML = `
+            <td class="py-2.5 px-3 font-semibold text-gray-400 flex items-center gap-2">
+              1-Year <i class="fa-solid fa-circle-notch fa-spin text-cyan-400 text-[10px]"></i>
+            </td>
+            <td class="py-2.5 px-3 text-right text-gray-500 italic font-mono">Loading...</td>
+            <td class="py-2.5 px-3 text-right text-gray-500 italic font-mono">Loading...</td>
+            <td class="py-2.5 px-3 text-right text-cyan-400/80 italic font-mono">Loading...</td>
+            <td class="py-2.5 px-3 text-right text-gray-500 italic font-mono">Loading...</td>
+            <td class="py-2.5 px-3 text-right text-gray-500 italic font-mono">Loading...</td>
+            <td class="py-2.5 px-3 text-right text-gray-500 italic font-mono">Loading...</td>
+          `;
+          tbody.appendChild(tr1y);
+        }
+
+        if (!renderedLabels.has("10-Year")) {
+          const tr10y = document.createElement("tr");
+          tr10y.className = "bg-gray-900/40 text-gray-400 animate-pulse border-b border-gray-800/40";
+          tr10y.innerHTML = `
+            <td class="py-2.5 px-3 font-semibold text-gray-400 flex items-center gap-2">
+              10-Year <i class="fa-solid fa-circle-notch fa-spin text-purple-400 text-[10px]"></i>
+            </td>
+            <td class="py-2.5 px-3 text-right text-gray-500 italic font-mono">Loading...</td>
+            <td class="py-2.5 px-3 text-right text-gray-500 italic font-mono">Loading...</td>
+            <td class="py-2.5 px-3 text-right text-purple-400/80 italic font-mono">Loading...</td>
+            <td class="py-2.5 px-3 text-right text-gray-500 italic font-mono">Loading...</td>
+            <td class="py-2.5 px-3 text-right text-gray-500 italic font-mono">Loading...</td>
+            <td class="py-2.5 px-3 text-right text-gray-500 italic font-mono">Loading...</td>
+          `;
+          tbody.appendChild(tr10y);
+        }
+      }
+    }
+
+    function renderTradeLog(trades) {
+      const tbody = document.getElementById("tradeLogBody");
+      tbody.innerHTML = "";
+      if (!trades || trades.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="12" class="py-6 text-center text-gray-500">No trades executed in this window.</td></tr>`;
+        return;
+      }
+
+      trades.forEach(t => {
+        const isWin = t.net_pnl_usd > 0;
+        const isLoss = t.net_pnl_usd < 0;
+        const pnlColor = isWin ? 'text-emerald-400' : (isLoss ? 'text-rose-400' : 'text-gray-400');
+        const sideBadge = t.side === 'BUY' 
+          ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">BUY</span>'
+          : '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-400 border border-rose-800">SELL</span>';
+
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-gray-800/40 transition";
+        tr.innerHTML = `
+          <td class="py-2 px-3 text-gray-400">${t.trade_id}</td>
+          <td class="py-2 px-3">${sideBadge}</td>
+          <td class="py-2 px-3 text-gray-300">${t.entry_time.split(".")[0]}</td>
+          <td class="py-2 px-3 text-right text-gray-200">$${t.entry_price.toFixed(2)}</td>
+          <td class="py-2 px-3 text-right text-gray-200">$${t.exit_price.toFixed(2)}</td>
+          <td class="py-2 px-3 text-gray-400 text-[11px]">${t.exit_reason}</td>
+          <td class="py-2 px-3 text-right text-gray-400">${t.duration_minutes.toFixed(1)}m</td>
+          <td class="py-2 px-3 text-right font-medium ${t.points_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${t.points_pnl > 0 ? '+' : ''}${t.points_pnl.toFixed(2)}p</td>
+          <td class="py-2 px-3 text-right font-bold ${pnlColor}">$${t.net_pnl_usd.toFixed(2)}</td>
+          <td class="py-2 px-3 text-right text-emerald-400/80">$${t.mfe_usd.toFixed(2)}</td>
+          <td class="py-2 px-3 text-right text-rose-400/80">$${t.mae_usd.toFixed(2)}</td>
+          <td class="py-2 px-3 text-right text-gray-300">${t.r_multiple.toFixed(2)}R</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterTrades() {
+      const side = document.getElementById("tradeFilterSide").value;
+      const outcome = document.getElementById("tradeFilterOutcome").value;
+
+      let filtered = globalTrades;
+      if (side !== "ALL") {
+        filtered = filtered.filter(t => t.side === side);
+      }
+      if (outcome === "WIN") {
+        filtered = filtered.filter(t => t.net_pnl_usd > 0);
+      } else if (outcome === "LOSS") {
+        filtered = filtered.filter(t => t.net_pnl_usd < 0);
+      }
+      renderTradeLog(filtered);
+    }
+  </script>
+</body>
+</html>
