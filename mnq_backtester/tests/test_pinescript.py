@@ -42,8 +42,9 @@ def test_pinescript_strategy_parser_and_run():
         })
         price = bars[-1]["close"]
 
-    # Test running SMC Sweep PineScript
-    smc_code = PINE_STRATEGY_SUITE["smc_sweep_007"]["code"]
-    res, strat = PineScriptRunner.run_pine_code(smc_code, bars)
+    # Test running first available generic StockSharp PineScript
+    strat_key = next(iter(PINE_STRATEGY_SUITE))
+    strat_code = PINE_STRATEGY_SUITE[strat_key]["code"]
+    res, strat = PineScriptRunner.run_pine_code(strat_code, bars)
     assert strat.name is not None
     assert res.total_bars_processed > 0

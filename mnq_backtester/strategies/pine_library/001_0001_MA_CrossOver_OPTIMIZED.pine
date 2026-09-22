@@ -1,0 +1,29 @@
+//@version=6
+strategy("Moving Average Crossover Strategy [StockSharp]", overlay=true, initial_capital=100000, default_qty_type=strategy.fixed, default_qty_value=1)
+
+// ==========================================
+// Parameters & Inputs
+// ==========================================
+fastLen      = input.int(10, title="Fast MA Period")
+slowLen      = input.int(30, title="Slow MA Period")
+stopPercent  = input.float(1.5, title="Stop Loss (%)")
+
+fastMa = ta.ema(close, fastLen)
+slowMa = ta.ema(close, slowLen)
+longCond  = ta.crossover(fastMa, slowMa)
+shortCond = ta.crossunder(fastMa, slowMa)
+
+// Execution Logic
+if (longCond and strategy.position_size == 0)
+    strategy.entry("Long", strategy.long)
+
+if (shortCond and strategy.position_size == 0)
+    strategy.entry("Short", strategy.short)
+
+// Stop Loss
+if (strategy.position_size > 0)
+    entryPx = strategy.opentrades.entry_price(0)
+    strategy.exit("SL Long", "Long", stop=entryPx * (1.0 - stopPercent / 100.0))
+else if (strategy.position_size < 0)
+    entryPx = strategy.opentrades.entry_price(0)
+    strategy.exit("SL Short", "Short", stop=entryPx * (1.0 + stopPercent / 100.0))

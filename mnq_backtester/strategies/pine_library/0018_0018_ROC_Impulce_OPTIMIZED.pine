@@ -1,0 +1,111 @@
+//@version=6
+strategy("ROC Impulce [StockSharp] - Qlib Hyperparameters", overlay=true, initial_capital=100000, default_qty_type=strategy.fixed, default_qty_value=3)
+
+// ==========================================
+// Parsed Strategy Hyperparameters (Qlib Workbench Syntax)
+// ==========================================
+enable_longs        = input.bool(true, "Trade Long Entries")
+enable_shorts       = input.bool(true, "Trade Short Entries")
+atr_len             = input.int(14, "ATR Length")
+atr_multiplier_sl   = input.float( 1.8577, "ATR SL Multiplier")
+atr_multiplier_tp   = input.float( 2.0933, "ATR TP Multiplier")
+fast_ema_len        = input.int(9, "Fast EMA Length")
+slow_ema_len        = input.int(21, "Slow EMA Length")
+filter_ema_len      = input.int(100, "Anchor Filter EMA")
+lookback_len        = input.int( 28, "Lookback Bars for High/Low")
+orb_mins            = input.int(15, "ORB Period (mins)")
+cushion_ticks       = input.int(25, "Breakout Buffer (ticks)")
+break_ticks         = input.int(10, "Momentum Breakout Distance (ticks)")
+tick_refined        = input.int(40, "Refined Tick Stop")
+tick_aggressive     = input.int(55, "Aggressive Tick Stop")
+trail_activation    = input.int(25, "Trailing Activation (ticks)")
+trail_offset        = input.int(10, "Trailing Offset (ticks)")
+enable_asia         = input.bool(true, "Trade Asia Session (Globex)")
+enable_london       = input.bool(true, "Trade London Session")
+enable_ny           = input.bool(true, "Trade New York Session")
+use_adx             = input.bool(true, "Enable ADX Filter")
+adx_len             = input.int(14, "ADX Smoothing Length")
+min_adx             = input.float(20.0, "Minimum ADX Level")
+use_vwap            = input.bool(true, "Enable VWAP Direction Filter")
+enable_be           = input.bool(true, "Move Stop Loss to Breakeven at 1.5x ATR Profit")
+
+// ==========================================
+// Indicator Calculations (Evaluated Globally)
+// ==========================================
+fast_ma       = ta.ema(close, fast_ema_len)
+slow_ma       = ta.ema(close, slow_ema_len)
+trend_ma      = ta.ema(close, filter_ema_len)
+vwap_val      = ta.vwap(close)
+[di_plus, di_minus, adx_val] = ta.dmi(adx_len, adx_len)
+
+ema_cross_up   = ta.crossover(fast_ma, slow_ma)
+ema_cross_down = ta.crossunder(fast_ma, slow_ma)
+
+plot(fast_ma, title="Fast EMA", color=color.green, linewidth=1)
+plot(slow_ma, title="Slow EMA", color=color.red, linewidth=1)
+plot(trend_ma, title="Trend EMA Filter", color=color.blue, linewidth=2)
+plot(vwap_val, title="VWAP", color=color.orange, linewidth=2)
+
+// ==========================================
+// Session Filter Logic
+// ==========================================
+t_asia   = time(timeframe.period, "1800-0300:1234567")
+t_london = time(timeframe.period, "0300-1100:1234567")
+t_ny     = time(timeframe.period, "0800-1700:1234567")
+session_ok = (enable_asia and not na(t_asia)) or (enable_london and not na(t_london)) or (enable_ny and not na(t_ny))
+
+// ==========================================
+// Signal Condition Logic
+// ==========================================
+adx_condition  = not use_adx or (adx_val >= min_adx)
+vwap_long_cond  = not use_vwap or (close > vwap_val)
+vwap_short_cond = not use_vwap or (close < vwap_val)
+trend_long_cond = close > trend_ma
+trend_short_cond = close < trend_ma
+
+long_cond      = enable_longs and ema_cross_up and vwap_long_cond and trend_long_cond and adx_condition and session_ok
+short_cond     = enable_shorts and ema_cross_down and vwap_short_cond and trend_short_cond and adx_condition and session_ok
+
+// ==========================================
+// Strategy Entry Execution
+// ==========================================
+if (long_cond)
+    strategy.entry("Long", strategy.long)
+
+if (short_cond)
+    strategy.entry("Short", strategy.short)
+
+// ==========================================
+// Risk & Profit Management Engine
+// ==========================================
+var float long_sl = na
+var float long_tp = na
+var float short_sl = na
+var float short_tp = na
+var bool  long_be_triggered = false
+var bool  short_be_triggered = false
+
+atr_val = ta.atr(atr_len)
+
+if (strategy.position_size > 0)
+    if (strategy.position_size[1] <= 0)
+        long_sl := close - (atr_val * atr_multiplier_sl)
+        long_tp := close + (atr_val * atr_multiplier_tp)
+        long_be_triggered := false
+    if (enable_be and not long_be_triggered and close >= strategy.opentrades.entry_price(0) + (atr_val * 1.5))
+        long_sl := strategy.opentrades.entry_price(0)
+        long_be_triggered := true
+    strategy.exit("Exit Long", "Long", stop=long_sl, limit=long_tp, trail_points=trail_activation * syminfo.mintick, trail_offset=trail_offset * syminfo.mintick)
+    if (ema_cross_down)
+        strategy.close("Long", comment="EMA Bearish Reversal")
+else if (strategy.position_size < 0)
+    if (strategy.position_size[1] >= 0)
+        short_sl := close + (atr_val * atr_multiplier_sl)
+        short_tp := close - (atr_val * atr_multiplier_tp)
+        short_be_triggered := false
+    if (enable_be and not short_be_triggered and close <= strategy.opentrades.entry_price(0) - (atr_val * 1.5))
+        short_sl := strategy.opentrades.entry_price(0)
+        short_be_triggered := true
+    strategy.exit("Exit Short", "Short", stop=short_sl, limit=short_tp, trail_points=trail_activation * syminfo.mintick, trail_offset=trail_offset * syminfo.mintick)
+    if (ema_cross_up)
+        strategy.close("Short", comment="EMA Bullish Reversal")
